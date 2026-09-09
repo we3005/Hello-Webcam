@@ -1,33 +1,31 @@
 # Webcam Gesture Recognizer
 
 Real-time hand gesture recognition using [MediaPipe Hands](https://developers.google.com/mediapipe)
-for landmark tracking, with custom geometric rules to classify gestures.
+for landmark tracking, with custom rules to classify gestures.
 
 **Recognizes:**
-- 👍 Thumbs Up
-- ✌️ Peace Sign
-- 🦅 Claw
-- 🫰 Korean Finger Heart (one hand, thumb + index pinched)
-- 💕 Double Heart Hands (two hands crossed into a heart)
+- Thumbs Up
+- Peace Sign
+- Claw
+- Korean Finger Heart (one hand, thumb + index pinched)
+- Double Heart Hands (two hands crossed into a heart)
 
-## Why this approach
+**Approach Reasoning**
 
 Instead of training a classifier, each gesture is defined by rules over the
 21 hand landmarks MediaPipe returns per hand:
 
-1. Every finger is classified into one of three **curl states** based on the
-   angles at its knuckles (not raw x/y position, so it works even if your
-   hand is rotated — e.g. a sideways thumbs-up):
-   - `extended` — straight, pointing out
-   - `hooked` — bent at the first knuckle but not folded in (claw shape)
-   - `curled` — folded into the palm (fist-like)
+1. Every finger is classified into one of three "curl states" based on the
+   angles at the knuckles:
+   - `extended` — straight and pointing outwards
+   - `hooked` — bent at the first knuckle, in a claw shape
+   - `curled` — folded into a fist
 2. Each gesture is then just a pattern over those curl states, plus a
-   distance check where needed (e.g. thumb tip near index tip for the
-   finger heart).
+   distance check (for example, so we can check if the thumb is over the index area
+   to see if a finger heart is being made).
 
-This runs fast on CPU, needs no training data, and is easy to tune (see below).
 
-## Setup
+**Setup**
 
 ```bash
 python3 -m venv venv
@@ -38,19 +36,17 @@ python main.py
 
 **Notes:**
 - Requires a working webcam and OS permission for camera access.
-- This runs as a local desktop script (uses `cv2.imshow`) — it needs a real
+- This runs as a local desktop script (uses `cv2.imshow`), so it needs a real
   Python environment with a display, not a browser sandbox.
 
-### Python 3.13
+**Python 3.13**
 
-MediaPipe does not yet publish official PyPI wheels for Python 3.13 (this is
-a known, currently-open limitation on their end — see
-[issue #6159](https://github.com/google-ai-edge/mediapipe/issues/6159)), so
+MediaPipe does not yet publish official PyPI wheels for Python 3.13 (frowny face), so
 `pip install mediapipe` will fail if your virtual environment is on 3.13.
 `main.py` detects this and exits with a clear message rather than a raw
 import error.
 
-The fix is to run *this app* in a 3.11 or 3.12 environment, even if 3.13 is
+The fix is to run in a 3.11 or 3.12 environment, even if 3.13 is
 your system default elsewhere — it won't affect anything else on your
 machine. Easiest ways to get one:
 
@@ -79,11 +75,8 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Check MediaPipe's [PyPI page](https://pypi.org/project/mediapipe/) periodically —
-once they ship 3.13 wheels, a plain 3.13 venv will work fine and this
-workaround won't be needed.
 
-## Controls
+**Controls**
 
 | Key | Action |
 |-----|--------|
@@ -91,9 +84,9 @@ workaround won't be needed.
 | `d` | Toggle debug overlay (shows each finger's curl state) |
 | `m` | Toggle mirror mode |
 
-## Tuning
+**Tuning**
 
-Gestures are recognized less reliably from certain angles, lighting, or hand
+Gestures can be difficult to register from certain angles, lighting, or hand
 sizes than others. If a gesture isn't triggering (or triggers too easily),
 turn on debug mode (`d`) to see the live curl state of each finger, then
 adjust thresholds in `gesture_recognizer.py`:
@@ -107,16 +100,10 @@ adjust thresholds in `gesture_recognizer.py`:
   hands' crossed fingertips must be.
 
 All thresholds are normalized by hand size, so they should hold up
-reasonably well across distances from the camera — but camera angle,
-occlusion, and individual hand proportions will still affect accuracy some.
+welL across distances from the camera, but camera angle, occlusion, 
+and individual hand proportions will still affect accuracy some.
 
-## Extending
 
-To add a new gesture:
-1. Write a new `is_my_gesture(hand: HandInfo) -> bool` function in
-   `gesture_recognizer.py` using `hand.curls`, `hand.tip(finger)`, and
-   `hand.norm_dist(a, b)`.
-2. Add it to the `if/elif` chain in `classify_frame()`.
 
 For two-hand gestures, follow the pattern of `is_double_heart()`, which
 receives the list of both detected `HandInfo` objects.
