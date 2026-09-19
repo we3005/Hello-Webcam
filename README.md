@@ -1,26 +1,22 @@
 # Hello Webcam!
 
-Real-time hand gesture recognition using [MediaPipe Hands](https://developers.google.com/mediapipe)
-for landmark tracking, with custom rules to classify gestures. Each recognized
-gesture shows a styled label, a large emoji badge, and a hand-drawn
-illustration on screen, and making the "Index Raised" gesture overlays a
-real pair of glasses on your face.
+A real-time hand gesture recognition tool that uses Media pipe for tracking, with custom gestures.
 
 **Recognizes:**
 - Thumbs Up 👍
 - Peace Sign ✌️
-- Korean Finger Heart 🫰 (one hand, thumb + index pinched, other fingers folded down)
-- OK Sign 👌 (one hand, thumb + index pinched into a circle, other three fingers extended)
-- Prayer Hands 🙏 (two hands, palms together, fingers extended and aligned)
-- Index Raised ☝️ (one hand, only the index finger extended — triggers the glasses overlay)
+- Korean Finger Heart 🫰 
+- OK Sign 👌 
+- Prayer Hands 🙏 (often has a difficult time recognizing, you may need to form more of a cup than a prayer)
+- Index Raised ☝️ 
 
 **On-screen display**
 
 Three things show up when a gesture is recognized, each in its own spot so
 they don't compete for the same space:
-- A styled label (rounded card, colored accent bar) in the top-left
-- A large emoji badge in the top-right corner
-- A hand-drawn illustration of the gesture, stacked down the left side
+- A label in the top-left
+- An emoji in the top-right corner
+- A hand-drawn illustration of the gesture (by Albert), stacked down the left side
 
 **Approach Reasoning**
 
@@ -30,18 +26,15 @@ Instead of training a classifier, each gesture is defined by rules over the
 1. Every finger is classified into one of three "curl states" based on the
    angles at the knuckles:
    - `extended` — straight and pointing outwards
-   - `hooked` — bent at the first knuckle, in a claw-like shape
+   - `hooked` — bent at the first knuckle 
    - `curled` — folded into a fist
-2. Each gesture is then just a pattern over those curl states, plus a
-   distance check (for example, checking if the thumb and index tips are
-   pinched close together to detect a finger heart or an OK sign — the two
-   are told apart by whether the remaining three fingers are curled down or
-   extended out).
+2. Each gesture is a pattern over those curl states, plus a
+   distance check.
 
 The Index Raised gesture also runs a lightweight MediaPipe Face Detection
 pass (only while that gesture is active, to save CPU) and uses its eye and
-ear keypoints to size, rotate, and place the glasses image overlay — no
-separate face-mesh model needed.
+ear keypoints to size, rotate, and place a pair of glasses over your eyes 
+(so that you can look like the 🤓 emoji)
 
 **Assets**
 
@@ -57,13 +50,6 @@ assets/
     nerd.png              — Index Raised
 ```
 
-Both the glasses and the drawings are loaded once at startup with their
-alpha channel preserved, so a transparent PNG background is expected —
-`glasses.png` gets resized and rotated every frame to match the detected
-face; the drawings are resized once to a fixed panel width. If a file is
-missing, that piece of the display (the glasses overlay, or that one
-drawing) is silently skipped rather than crashing the app — everything
-else keeps working.
 
 **Credits**
 
@@ -71,13 +57,12 @@ Cat drawings by Albert Rao (my friend).
 
 **Emoji icons**
 
-Each recognized gesture also gets a large emoji badge (☝️, 👍, etc.) in the
+Each recognized gesture also gets an emoji  (☝️, 👍, etc.) in the
 top-right corner. Since OpenCV's built-in text drawing can't render emoji,
 these are pre-rendered once at startup with Pillow using whichever
-color-emoji font your OS provides (Apple Color Emoji on macOS, Segoe UI
-Emoji on Windows, Noto Color Emoji on Linux if installed) and then cached
+color-emoji font your OS provides (so this can change) and then cached
 as images. If no color-emoji font can be found on your system, the badges
-are skipped — the app still runs fine either way.
+are skipped, but the app will still run
 
 **Setup**
 
