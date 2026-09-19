@@ -5,11 +5,12 @@ Uses MediaPipe Hands to obtain 21 3D landmarks per hand, then applies
 rotation-invariant, angle-based heuristics to determine finger curl
 state and recognize a fixed set of gestures:
 
-    - Thumbs Up
-    - Peace Sign
-    - Claw
-    - Korean Finger Heart (one hand)
-    - Double Heart Hands (two hands)
+    - Thumbs Up                   ("Thumbs Up")           👍
+    - Peace Sign                  ("Peace Sign")           ✌️
+    - Korean Finger Heart         ("Korean Finger Heart")  🫰  (one hand)
+    - OK Sign                     ("OK Sign")              👌
+    - Prayer Hands                ("Prayer Hands")         🙏  (two hands)
+    - Index Raised                ("Index Raised")         ☝️
 
 The heuristics are based on joint angles rather than raw x/y screen
 positions, so they keep working when the hand is rotated (e.g. a
@@ -42,10 +43,22 @@ FINGERS = {
     "pinky": PINKY,
 }
 
+# Emoji shown alongside each recognized gesture's on-screen label.
+# main.py renders these next to the label text when a color-emoji font
+# is available on the system (see _find_emoji_font / _build_icon_cache).
+GESTURE_EMOJI = {
+    "Thumbs Up": "\U0001F44D",             # 👍
+    "Peace Sign": "\u270C\uFE0F",           # ✌️
+    "Korean Finger Heart": "\U0001FAF0",    # 🫰
+    "OK Sign": "\U0001F44C",                # 👌
+    "Prayer Hands": "\U0001F64F",           # 🙏
+    "Index Raised": "\u261D\uFE0F",         # ☝️
+}
+
 
 class Curl(Enum):
     EXTENDED = "extended"   # straight, pointing out
-    HOOKED = "hooked"       # bent at the knuckle but not folded into the palm (claw)
+    HOOKED = "hooked"       # bent at the knuckle but not folded into the palm
     CURLED = "curled"       # folded into the palm (fist-like)
 
 
@@ -131,19 +144,9 @@ def is_peace_sign(hand: HandInfo) -> bool:
     return spread > 0.35  # index/middle separated into a "V"
 
 
-def is_claw(hand: HandInfo) -> bool:
-    c = hand.curls
-    hook_fingers = ("index", "middle", "ring", "pinky")
-    if any(c[f] != Curl.HOOKED for f in hook_fingers):
-        return False
-    tips = [hand.tip(f) for f in hook_fingers]
-    spread = sum(hand.norm_dist(tips[i], tips[i + 1]) for i in range(len(tips) - 1))
-    return spread > 0.9  # fingers spread apart, not bunched
-
-
 def is_finger_heart(hand: HandInfo) -> bool:
-    """Korean one-hand 'finger heart' — thumb and index tips pinched together,
-    remaining fingers folded down."""
+    """Korean one-hand 'finger heart' (🫰) — thumb and index tips pinched
+    together, remaining fingers folded down."""
     c = hand.curls
     if any(c[f] != Curl.CURLED for f in ("middle", "ring", "pinky")):
         return False
@@ -153,29 +156,59 @@ def is_finger_heart(hand: HandInfo) -> bool:
     return pinch < 0.35
 
 
+def is_ok_sign(hand: HandInfo) -> bool:
+    """OK hand sign (👌) — thumb and index pinched into a circle, with the
+    other three fingers extended and fanned out (the opposite of the finger
+    heart's folded-down fingers, which is what distinguishes the two)."""
+    c = hand.curls
+    if any(c[f] != Curl.EXTENDED for f in ("middle", "ring", "pinky")):
+        return False
+    if c["thumb"] == Curl.EXTENDED and c["index"] == Curl.EXTENDED:
+        return False  # open hand, not a pinched circle
+    pinch = hand.norm_dist(hand.tip("thumb"), hand.tip("index"))
+    return pinch < 0.35
+
+
+def is_index_point(hand: HandInfo) -> bool:
+    """Single index finger raised (☝️) — index extended, thumb and the
+    remaining fingers folded into a loose fist."""
+    c = hand.curls
+    if c["index"] != Curl.EXTENDED:
+        return False
+    if c["thumb"] == Curl.EXTENDED:
+        return False
+    if any(c[f] != Curl.CURLED for f in ("middle", "ring", "pinky")):
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Two-hand gesture detectors
 # ---------------------------------------------------------------------------
 
-def is_double_heart(hands: List[HandInfo]) -> bool:
-    """Two-hand heart — each hand's thumb tip meets the other hand's index tip."""
+def is_prayer_hands(hands: List[HandInfo]) -> bool:
+    """Two-hand prayer / namaste pose (🙏) — both palms held flat together,
+    fingers extended and lined up, wrists close to one another."""
     if len(hands) != 2:
         return False
     h1, h2 = hands
     for h in (h1, h2):
-        if any(h.curls[f] != Curl.CURLED for f in ("middle", "ring", "pinky")):
+        extended_count = sum(1 for f in FINGERS if h.curls[f] == Curl.EXTENDED)
+        if extended_count < 4:
             return False
     scale = (h1.scale + h2.scale) / 2
-    cross1 = _dist(h1.tip("thumb"), h2.tip("index")) / scale
-    cross2 = _dist(h2.tip("thumb"), h1.tip("index")) / scale
-    return cross1 < 0.6 and cross2 < 0.6
+    tip_gap = sum(
+        _dist(h1.tip(f), h2.tip(f)) for f in ("index", "middle", "ring", "pinky")
+    ) / (4 * scale)
+    wrist_gap = _dist(h1.points[WRIST], h2.points[WRIST]) / scale
+    return tip_gap < 0.5 and wrist_gap < 1.0
 
 
 def classify_frame(hands: List[HandInfo]) -> Tuple[Optional[str], List[Tuple[str, str]]]:
     """
     Returns (two_hand_gesture_or_None, [(handedness, single_hand_gesture), ...])
     """
-    two_hand_result = "Double Heart Hands" if is_double_heart(hands) else None
+    two_hand_result = "Prayer Hands" if is_prayer_hands(hands) else None
 
     per_hand_results = []
     if two_hand_result is None:
@@ -187,8 +220,10 @@ def classify_frame(hands: List[HandInfo]) -> Tuple[Optional[str], List[Tuple[str
                 label = "Peace Sign"
             elif is_finger_heart(h):
                 label = "Korean Finger Heart"
-            elif is_claw(h):
-                label = "Claw"
+            elif is_ok_sign(h):
+                label = "OK Sign"
+            elif is_index_point(h):
+                label = "Index Raised"
             if label:
                 per_hand_results.append((h.handedness, label))
 

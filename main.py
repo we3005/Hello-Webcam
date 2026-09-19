@@ -1,8 +1,10 @@
 """
 Real-time webcam gesture recognizer.
 
-Detects: Thumbs Up, Peace Sign, Claw, Korean Finger Heart (one hand),
-and Double Heart Hands (two hands).
+Detects: Thumbs Up, Peace Sign, Korean Finger Heart, OK Sign,
+Prayer Hands (two hands), and Index Raised (with an image-based glasses
+overlay). Each active gesture shows a styled label, a large emoji badge in
+the top-right corner, and a hand-drawn illustration in the left-side panel.
 
 Controls:
   q - quit
@@ -27,14 +29,29 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from gesture_recognizer import analyze_hand, classify_frame
+from gesture_recognizer import analyze_hand, classify_frame, GESTURE_EMOJI
+from overlay import (
+    ACCENT_SINGLE,
+    ACCENT_TWO_HAND,
+    build_icon_cache,
+    build_drawing_cache,
+    draw_drawing_panel,
+    draw_gesture_icons,
+    draw_glasses_image,
+    draw_hint_bar,
+    draw_label,
+    load_glasses_image,
+)
 
 mp_hands = mp.solutions.hands
+mp_face = mp.solutions.face_detection
 mp_drawing = mp.solutions.drawing_utils
 mp_styles = mp.solutions.drawing_styles
 
 SMOOTHING_WINDOW = 6        # frames of history per hand
 MIN_STABLE_FRACTION = 0.6   # fraction of window that must agree before displaying
+
+GLASSES_GESTURE = "Index Raised"
 
 
 class GestureStabilizer:
@@ -57,13 +74,6 @@ class GestureStabilizer:
         return None
 
 
-def draw_label(frame, text, origin, color=(60, 220, 60)):
-    x, y = origin
-    (w, h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
-    cv2.rectangle(frame, (x - 5, y - h - 12), (x + w + 5, y + 6), (20, 20, 20), -1)
-    cv2.putText(frame, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2, cv2.LINE_AA)
-
-
 def draw_debug(frame, hand_info, origin):
     x, y = origin
     cv2.putText(frame, hand_info.handedness, (x, y - 10),
@@ -81,6 +91,9 @@ def main():
         raise RuntimeError("Could not open webcam. Check camera permissions / device index.")
 
     stabilizer = GestureStabilizer()
+    icon_cache = build_icon_cache(GESTURE_EMOJI)      # empty dict if no emoji font is available
+    drawing_cache = build_drawing_cache()              # empty dict if assets/drawings/ is missing files
+    glasses_img = load_glasses_image()                 # None if assets/glasses.png is missing
     debug_mode = False
     mirror = True
     prev_time = time.time()
@@ -90,7 +103,10 @@ def main():
         max_num_hands=2,
         min_detection_confidence=0.7,
         min_tracking_confidence=0.6,
-    ) as hands:
+    ) as hands, mp_face.FaceDetection(
+        model_selection=0,
+        min_detection_confidence=0.6,
+    ) as face_detector:
         while True:
             ok, frame = cap.read()
             if not ok:
@@ -118,12 +134,15 @@ def main():
 
             two_hand_gesture, per_hand_gestures = classify_frame(hand_infos)
 
-            y_cursor = 40
+            y_cursor = 60
+            show_glasses = False
+            active_gesture_labels = []
             if two_hand_gesture:
                 stable = stabilizer.update("both", two_hand_gesture)
                 if stable:
-                    draw_label(frame, stable, (20, y_cursor), color=(255, 120, 255))
-                    y_cursor += 45
+                    _, _, _, card_h = draw_label(frame, stable, (20, y_cursor), accent=ACCENT_TWO_HAND)
+                    y_cursor += card_h + 16
+                    active_gesture_labels.append(stable)
             else:
                 stabilizer.update("both", None)
                 seen = set()
@@ -131,11 +150,25 @@ def main():
                     stable = stabilizer.update(handedness, label)
                     seen.add(handedness)
                     if stable:
-                        draw_label(frame, f"{handedness}: {stable}", (20, y_cursor))
-                        y_cursor += 45
+                        _, _, _, card_h = draw_label(frame, f"{handedness}: {stable}", (20, y_cursor))
+                        y_cursor += card_h + 16
+                        active_gesture_labels.append(stable)
+                        if stable == GLASSES_GESTURE:
+                            show_glasses = True
                 for hi in hand_infos:
                     if hi.handedness not in seen:
                         stabilizer.update(hi.handedness, None)
+
+            draw_gesture_icons(frame, icon_cache, active_gesture_labels)
+            draw_drawing_panel(frame, drawing_cache, active_gesture_labels, start_y=y_cursor + 10)
+
+            if show_glasses and glasses_img is not None:
+                rgb.flags.writeable = False
+                face_results = face_detector.process(rgb)
+                rgb.flags.writeable = True
+                if face_results.detections:
+                    for detection in face_results.detections:
+                        draw_glasses_image(frame, detection, glasses_img, w_px, h_px)
 
             if debug_mode:
                 for i, hi in enumerate(hand_infos):
@@ -144,12 +177,10 @@ def main():
             now = time.time()
             fps = 1.0 / max(now - prev_time, 1e-6)
             prev_time = now
-            cv2.putText(frame, f"FPS: {fps:.0f}", (w_px - 100, h_px - 15),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (180, 180, 180), 1, cv2.LINE_AA)
-            cv2.putText(frame, "q: quit  d: debug  m: mirror", (20, h_px - 15),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1, cv2.LINE_AA)
+            draw_hint_bar(frame, f"FPS: {fps:.0f}", (w_px - 100, h_px - 15))
+            draw_hint_bar(frame, "q: quit  d: debug  m: mirror", (20, h_px - 15))
 
-            cv2.imshow("Gesture Recognizer", frame)
+            cv2.imshow("Hello Webcam!", frame)
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
