@@ -55,6 +55,7 @@ assets/
 
 Cat drawings by Albert Rao (my friend).
 
+
 ## Emoji icons
 
 Each recognized gesture also gets an emoji  (☝️, 👍, etc.) in the
@@ -63,6 +64,7 @@ these are pre-rendered once at startup with Pillow using whichever
 color-emoji font your OS provides (so this can change) and then cached
 as images. If no color-emoji font can be found on your system, the badges
 are skipped, but the app will still run
+
 
 ## Setup
 
@@ -79,6 +81,7 @@ python main.py
 - Requires a working webcam and OS permission for camera access.
 - This runs as a local desktop script (uses `cv2.imshow`), so it needs a real
   Python environment with a display, not a browser sandbox.
+
 
 ## Common Errors
 
@@ -106,7 +109,8 @@ The fix is to run in a 3.11 or 3.12 environment, even if 3.13 is
 your system default elsewhere — it won't affect anything else on your
 machine. Easiest ways to get one:
 
-## How to fix these issues:
+
+## How to fix the errors mentioned:
 
 **Using [uv](https://docs.astral.sh/uv/) (recommended, no separate Python install needed):**
 ```bash
@@ -183,6 +187,7 @@ python main.py
 | `q` | Quit |
 | `d` | Toggle debug overlay (shows each finger's curl state) |
 | `m` | Toggle mirror mode |
+
 
 ## Tuning
 
