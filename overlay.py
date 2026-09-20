@@ -19,7 +19,7 @@ The raised-hand emoji comes in gendered variants. Composing the real
 engine (libraqm) that many Pillow installs don't have, so instead the plain
 🙋 is rendered and a small ♂️ / ♀️ badge is composited onto its corner. That
 looks the same on every OS/Pillow build. That badge version is only a
-fallback now: if `assets/emoji/hand_raised_male.png` / `..._female.png` exist,
+fallback now: if `assets/emoji/hand_raising_male.png` / `..._female.png` exist,
 load_gender_icons() uses those real 🙋‍♂️ / 🙋‍♀️ images instead.
 
 Assets
@@ -207,23 +207,42 @@ def build_icon_cache(gesture_emoji: Dict[str, str],
     return cache
 
 
+# Where load_gender_icons looks, in order: filename prefixes per base gesture
+# ("<prefix>_male.png" / "<prefix>_female.png"), inside these folders.
+GENDER_ICON_PREFIXES = {"Hand Raised": ("hand_raising", "hand_raised")}
+GENDER_ICON_DIRS = (
+    os.path.join(ASSETS_DIR, "emoji"),
+    ASSETS_DIR,
+    os.path.dirname(ASSETS_DIR),      # project root
+)
+
+
 def load_gender_icons(gender_variants: Dict[str, Dict[str, str]]) -> Dict[str, np.ndarray]:
-    """Load the ready-made gendered emoji images (e.g. assets/emoji/
-    hand_raised_female.png, i.e. the real 🙋‍♀️) into icon-cache entries.
+    """Load ready-made gendered emoji images (e.g. hand_raising_female.png,
+    the real 🙋‍♀️) into icon-cache entries.
 
     Emoji fonts on a lot of setups can't draw combined "person + gender"
     emoji (that needs a text-shaping library most Pillow installs lack), so
-    these are shipped as plain PNGs and look the same on every computer.
-    Entries loaded here replace the badge-composite fallback from
-    build_icon_cache; missing files are simply skipped."""
+    these are plain PNGs instead. Entries loaded here replace the
+    badge-composite fallback from build_icon_cache. For each gesture/gender
+    the first match wins, checking each prefix in GENDER_ICON_PREFIXES across
+    each folder in GENDER_ICON_DIRS; anything not found prints a one-line note
+    saying where it looked."""
     cache: Dict[str, np.ndarray] = {}
     if not _PIL_AVAILABLE:
         return cache
     for base_label, signs in gender_variants.items():
+        prefixes = GENDER_ICON_PREFIXES.get(base_label, (base_label.lower().replace(" ", "_"),))
         for gender in signs:
-            filename = f"{base_label.lower().replace(' ', '_')}_{gender.lower()}.png"
-            path = os.path.join(ASSETS_DIR, "emoji", filename)
-            if not os.path.isfile(path):
+            path = next(
+                (os.path.join(d, f"{prefix}_{gender.lower()}.png")
+                 for prefix in prefixes for d in GENDER_ICON_DIRS
+                 if os.path.isfile(os.path.join(d, f"{prefix}_{gender.lower()}.png"))),
+                None,
+            )
+            if path is None:
+                print(f"Gender emoji image not found for '{base_label} ({gender})' - using the badge "
+                      f"fallback. Looked for {prefixes[0]}_{gender.lower()}.png in {GENDER_ICON_DIRS[0]}")
                 continue
             img = Image.open(path).convert("RGBA")
             scale = ICON_SIZE / max(img.size)
