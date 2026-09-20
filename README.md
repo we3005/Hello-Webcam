@@ -51,11 +51,11 @@ assets/
 ```
 
 
-**Credits**
+## Credits
 
 Cat drawings by Albert Rao (my friend).
 
-**Emoji icons**
+## Emoji icons
 
 Each recognized gesture also gets an emoji  (☝️, 👍, etc.) in the
 top-right corner. Since OpenCV's built-in text drawing can't render emoji,
@@ -64,7 +64,7 @@ color-emoji font your OS provides (so this can change) and then cached
 as images. If no color-emoji font can be found on your system, the badges
 are skipped, but the app will still run
 
-**Setup**
+## Setup
 
 > **Note:** Python 3.10 or 3.11 is required due to MediaPipe constraints. If your default system Python is 3.13, jump to the **Python 3.13 & Environment Setup Troubleshooting** section below before installing!
 
@@ -80,7 +80,9 @@ python main.py
 - This runs as a local desktop script (uses `cv2.imshow`), so it needs a real
   Python environment with a display, not a browser sandbox.
 
-**Known issue: pinned MediaPipe version**
+## Common Errors
+
+**Pinned MediaPipe version**
 
 `requirements.txt` pins `mediapipe==0.10.21` on purpose. Starting around
 mediapipe 0.10.30 (and in the 1.0.x releases), Google removed the legacy
@@ -104,7 +106,7 @@ The fix is to run in a 3.11 or 3.12 environment, even if 3.13 is
 your system default elsewhere — it won't affect anything else on your
 machine. Easiest ways to get one:
 
-***How to Fix these Issues:***
+## How to fix these issues:
 
 **Using [uv](https://docs.astral.sh/uv/) (recommended, no separate Python install needed):**
 ```bash
@@ -174,7 +176,7 @@ python main.py
 ```
 
 
-**Controls**
+## Controls
 
 | Key | Action |
 |-----|--------|
@@ -182,7 +184,7 @@ python main.py
 | `d` | Toggle debug overlay (shows each finger's curl state) |
 | `m` | Toggle mirror mode |
 
-**Tuning**
+## Tuning
 
 Gestures can be difficult to register from certain angles, lighting, or hand
 sizes than others. If a gesture isn't triggering (or triggers too easily),
