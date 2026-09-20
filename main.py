@@ -44,8 +44,8 @@ from gesture_recognizer import (
     RAISED_LABEL,
     analyze_hand,
     classify_frame,
+    fingertip_center,
     is_open_palm,
-    palm_center,
 )
 from motion import WaveDetector
 from overlay import (
@@ -127,7 +127,7 @@ class GestureStabilizer:
         return None
 
 
-def draw_debug(frame, hand_info, origin):
+def draw_debug(frame, hand_info, origin, wave_text=""):
     x, y = origin
     cv2.putText(frame, hand_info.handedness, (x, y - 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
@@ -136,6 +136,9 @@ def draw_debug(frame, hand_info, origin):
             frame, f"{finger}: {curl.value}", (x, y + 20 + 20 * i),
             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 255), 1, cv2.LINE_AA,
         )
+    if wave_text:
+        cv2.putText(frame, wave_text, (x, y + 20 + 20 * len(hand_info.curls)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (120, 255, 160), 1, cv2.LINE_AA)
 
 
 def main():
@@ -235,12 +238,14 @@ def main():
 
             # --- motion: which hands are currently waving?
             waving = set()
-            for hi in hand_infos:
-                cx = float(palm_center(hi)[0])
-                if wave_detector.update(hi.handedness, cx, hi.scale, frame_time,
-                                        eligible=is_open_palm(hi, min_extended=2)):
+            for i, hi in enumerate(hand_infos):
+                # Track by position in the list (not the Left/Right label, which
+                # MediaPipe can flip mid-wave) and report the result by label.
+                cx = float(fingertip_center(hi)[0])
+                if wave_detector.update(i, cx, hi.scale, frame_time,
+                                        eligible=is_open_palm(hi, min_extended=2, max_curled=1)):
                     waving.add(hi.handedness)
-            wave_detector.drop_missing(hi.handedness for hi in hand_infos)
+            wave_detector.forget_stale(frame_time)
 
             two_hand_gesture, per_hand_gestures = classify_frame(
                 hand_infos, waving_hands=waving, raise_y=raise_y)
@@ -294,7 +299,9 @@ def main():
 
             if debug_mode:
                 for i, hi in enumerate(hand_infos):
-                    draw_debug(frame, hi, (w_px - 170, 30 + i * 150))
+                    swings = wave_detector.last_swings.get(i, 0)
+                    draw_debug(frame, hi, (w_px - 170, 30 + i * 150),
+                               wave_text=f"wave swings: {swings}/{wave_detector.min_swings}")
 
             now = time.time()
             fps = 1.0 / max(now - prev_time, 1e-6)

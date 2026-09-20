@@ -42,11 +42,16 @@ that counts as "raised" (see below).
 **Waving and Hand Raised**
 
 Waving can't be recognized from a single frame, so `motion.py` adds a time
-dimension. `WaveDetector` keeps the last ~1.2 s of each open hand's horizontal
-position and calls it a wave once the hand has swung back and forth at least
-3 times, each swing at least half a palm-length wide (measured in palm lengths
-so it works at any distance, and so landmark jitter doesn't count). A wave
-beats every other single-hand gesture.
+dimension. `WaveDetector` keeps the last ~1.2 s of each open hand's
+fingertip position and calls it a wave once the hand has swung back and forth
+at least 3 times, each swing at least 0.4 palm-lengths wide (measured in palm
+lengths so it works at any distance, and so landmark jitter doesn't count).
+Fingertips are tracked rather than the palm because a wave pivots at the wrist
+or elbow, so the palm barely moves while the fingertips sweep a wide arc. A
+short glitch in the open-hand check (motion blur) or a dropped detection frame
+doesn't reset a wave in progress. A wave beats every other single-hand
+gesture. With debug mode on (`d`), each hand shows `wave swings: n/3`, which is
+handy for tuning.
 
 Hand Raised is a pose rule in `gesture_recognizer.py`: an open palm (no finger
 folded in), fingers pointing roughly up, with the middle fingertip above the
@@ -93,8 +98,8 @@ assets/
     pray.png              — Prayer Hands
     nerd.png              — Index Raised
   emoji/
-    hand_raised_male.png    — 🙋‍♂️ shown for a male guess
-    hand_raised_female.png  — 🙋‍♀️ shown for a female guess
+    hand_raising_male.png   — 🙋‍♂️ shown for a male guess
+    hand_raising_female.png — 🙋‍♀️ shown for a female guess
   models/
     gender_deploy.prototxt  — gender network definition (you add these two)
     gender_net.caffemodel   — gender network weights

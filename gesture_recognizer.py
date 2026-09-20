@@ -205,13 +205,21 @@ def palm_center(hand: HandInfo) -> np.ndarray:
     return hand.points[[WRIST, INDEX[0], MIDDLE[0], RING[0], PINKY[0]]].mean(axis=0)
 
 
-def is_open_palm(hand: HandInfo, min_extended: int = 3) -> bool:
-    """Open hand: none of the four fingers folded into the palm and at least
-    `min_extended` of them straight. The thumb is ignored since it sits in
-    very different places for waving, greeting, and raising a hand."""
+def fingertip_center(hand: HandInfo) -> np.ndarray:
+    """Average position of the four fingertips. This is what waving tracks:
+    a wave pivots at the wrist/elbow, so the fingertips sweep the widest arc
+    (the palm barely moves)."""
+    return hand.points[[INDEX[3], MIDDLE[3], RING[3], PINKY[3]]].mean(axis=0)
+
+
+def is_open_palm(hand: HandInfo, min_extended: int = 3, max_curled: int = 0) -> bool:
+    """Open hand: at most `max_curled` of the four fingers folded into the
+    palm and at least `min_extended` of them straight. The thumb is ignored
+    since it sits in very different places for waving, greeting, and
+    raising a hand."""
     four = ("index", "middle", "ring", "pinky")
     c = hand.curls
-    if any(c[f] == Curl.CURLED for f in four):
+    if sum(1 for f in four if c[f] == Curl.CURLED) > max_curled:
         return False
     return sum(1 for f in four if c[f] == Curl.EXTENDED) >= min_extended
 
