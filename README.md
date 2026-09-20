@@ -66,12 +66,13 @@ are skipped, but the app will still run
 
 **Setup**
 
+> **Note:** Python 3.10 or 3.11 is required due to MediaPipe constraints. If your default system Python is 3.13, jump to the **Python 3.13 & Environment Setup Troubleshooting** section below before installing!
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate      # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
-```
 
 **Notes:**
 - Requires a working webcam and OS permission for camera access.
@@ -108,16 +109,47 @@ uv venv --python 3.11 venv
 source venv/bin/activate        # On Windows: venv\Scripts\activate
 uv pip install -r requirements.txt
 python main.py
+
+Install uv (if you get zsh: command not found: uv): curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
+Close and reopen your terminal window after running the installer, and follow the instructions above to complete the setup.
+
 ```
 Note: a `uv venv` environment does not include `pip` itself (uv manages
 packages directly). Use `uv pip install ...` as shown above rather than
 plain `pip install ...` inside it — or `python -m pip ...`, which will
 report "No module named pip" the same way.
 
-**Using [pyenv](https://github.com/pyenv/pyenv):**
+**Using [pyenv](https://github.com/pyenv/pyenv) (recommended for macOS):**
 ```bash
 pyenv install 3.11.9
-pyenv exec python3.11 -m venv venv
+
+Enable shell integration and set Python 3.11:
+If running pyenv shell 3.11.9 gives pyenv: shell integration not enabled, run: eval
+"$(pyenv init -)"
+pyenv shell 3.11.9
+
+Avoid active virtual environment conflicts:
+If your terminal prompt shows an active environment like (.venv), running python -m venv
+will still use Python 3.13. You must deactivate all active environments first:
+deactivate
+
+Verify version and create virtual environment:
+Ensure python --version outputs 3.11.9 before creating the environment:
+python --version    # Must show Python 3.11.9
+rm -rf venv
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+**Using Homebrew (macOS)**
+```
+Install Python 3.10 via Homebrew:
+brew install python@3.10
+
+Create virtual environment using the Homebrew binary path:
+python3.10 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 python main.py
