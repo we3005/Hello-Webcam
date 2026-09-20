@@ -11,6 +11,9 @@ state and recognize a fixed set of gestures:
     - OK Sign                     ("OK Sign")              👌
     - Prayer Hands                ("Prayer Hands")         🙏  (two hands)
     - Index Raised                ("Index Raised")         ☝️
+    - Hand Raised                 ("Hand Raised")          🙋  (open palm held up at face level)
+    - Waving                      ("Waving")               👋  (open palm swung side to side —
+                                                             detected over time in motion.py)
 
 The heuristics are based on joint angles rather than raw x/y screen
 positions, so they keep working when the hand is rotated (e.g. a
@@ -21,7 +24,7 @@ do not handle well.
 import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -53,6 +56,20 @@ GESTURE_EMOJI = {
     "OK Sign": "\U0001F44C",                # 👌
     "Prayer Hands": "\U0001F64F",           # 🙏
     "Index Raised": "\u261D\uFE0F",         # ☝️
+    "Waving": "\U0001F44B",                # 👋
+    "Hand Raised": "\U0001F64B",           # 🙋
+}
+
+WAVE_LABEL = "Waving"
+RAISED_LABEL = "Hand Raised"
+
+# Gender signs composited onto the raised-hand emoji (overlay.build_icon_cache
+# adds a "Hand Raised (Male)" / "Hand Raised (Female)" variant for each).
+GENDER_VARIANTS = {
+    RAISED_LABEL: {
+        "Male": "\u2642\uFE0F",     # ♂️
+        "Female": "\u2640\uFE0F",   # ♀️
+    },
 }
 
 
@@ -182,6 +199,43 @@ def is_index_point(hand: HandInfo) -> bool:
     return True
 
 
+def palm_center(hand: HandInfo) -> np.ndarray:
+    """Centre of the palm (wrist + the four finger knuckles) — steadier to
+    track than a fingertip, which is what motion.WaveDetector follows."""
+    return hand.points[[WRIST, INDEX[0], MIDDLE[0], RING[0], PINKY[0]]].mean(axis=0)
+
+
+def is_open_palm(hand: HandInfo, min_extended: int = 3) -> bool:
+    """Open hand: none of the four fingers folded into the palm and at least
+    `min_extended` of them straight. The thumb is ignored since it sits in
+    very different places for waving, greeting, and raising a hand."""
+    four = ("index", "middle", "ring", "pinky")
+    c = hand.curls
+    if any(c[f] == Curl.CURLED for f in four):
+        return False
+    return sum(1 for f in four if c[f] == Curl.EXTENDED) >= min_extended
+
+
+def is_upright(hand: HandInfo, max_tilt_deg: float = 50.0) -> bool:
+    """True if the fingers point roughly up in the image (wrist -> middle
+    knuckle within `max_tilt_deg` of vertical)."""
+    v = hand.points[MIDDLE[0]][:2] - hand.points[WRIST][:2]
+    n = float(np.linalg.norm(v))
+    if n < 1e-6:
+        return False
+    cos_tilt = -v[1] / n   # image y grows downward, so "up" is (0, -1)
+    return cos_tilt >= math.cos(math.radians(max_tilt_deg))
+
+
+def is_hand_raised(hand: HandInfo, raise_y: float) -> bool:
+    """Open palm held upright with its middle fingertip above `raise_y`
+    (a pixel row — main.py passes the middle of the detected face, or a
+    fixed fraction of the frame height when no face is visible)."""
+    if not is_open_palm(hand) or not is_upright(hand):
+        return False
+    return float(hand.tip("middle")[1]) < raise_y
+
+
 # ---------------------------------------------------------------------------
 # Two-hand gesture detectors
 # ---------------------------------------------------------------------------
@@ -204,17 +258,30 @@ def is_prayer_hands(hands: List[HandInfo]) -> bool:
     return tip_gap < 0.5 and wrist_gap < 1.0
 
 
-def classify_frame(hands: List[HandInfo]) -> Tuple[Optional[str], List[Tuple[str, str]]]:
+def classify_frame(
+    hands: List[HandInfo],
+    waving_hands: Optional[Set[str]] = None,
+    raise_y: Optional[float] = None,
+) -> Tuple[Optional[str], List[Tuple[str, str]]]:
     """
     Returns (two_hand_gesture_or_None, [(handedness, single_hand_gesture), ...])
+
+    waving_hands: handedness labels that motion.WaveDetector currently reports
+        as waving. Waving wins over every other single-hand gesture.
+    raise_y: pixel row a hand must reach above to count as "Hand Raised";
+        None disables that gesture. It is checked last, after the finger-shape
+        gestures, so a raised open palm never steals a more specific pose.
     """
+    waving_hands = waving_hands or set()
     two_hand_result = "Prayer Hands" if is_prayer_hands(hands) else None
 
     per_hand_results = []
     if two_hand_result is None:
         for h in hands:
             label = None
-            if is_thumbs_up(h):
+            if h.handedness in waving_hands:
+                label = WAVE_LABEL
+            elif is_thumbs_up(h):
                 label = "Thumbs Up"
             elif is_peace_sign(h):
                 label = "Peace Sign"
@@ -224,6 +291,8 @@ def classify_frame(hands: List[HandInfo]) -> Tuple[Optional[str], List[Tuple[str
                 label = "OK Sign"
             elif is_index_point(h):
                 label = "Index Raised"
+            elif raise_y is not None and is_hand_raised(h, raise_y):
+                label = RAISED_LABEL
             if label:
                 per_hand_results.append((h.handedness, label))
 

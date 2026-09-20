@@ -14,6 +14,14 @@ be found (font missing, or an old Pillow without embedded-color glyph
 support), icon rendering is skipped entirely and gesture labels fall back
 to text-only, rather than crashing the app.
 
+The raised-hand emoji comes in gendered variants. Composing the real
+"person raising hand + male/female sign" ZWJ sequence needs a text-shaping
+engine (libraqm) that many Pillow installs don't have, so instead the plain
+🙋 is rendered and a small ♂️ / ♀️ badge is composited onto its corner. That
+looks the same on every OS/Pillow build. That badge version is only a
+fallback now: if `assets/emoji/hand_raised_male.png` / `..._female.png` exist,
+load_gender_icons() uses those real 🙋‍♂️ / 🙋‍♀️ images instead.
+
 Assets
 ------
 `assets/glasses.png` and the six drawings in `assets/drawings/` are loaded
@@ -99,6 +107,17 @@ def draw_hint_bar(frame: np.ndarray, text: str, origin: Tuple[int, int]) -> None
     cv2.putText(frame, text, (x, y), font, 0.5, CREDIT_COLOR, 1, cv2.LINE_AA)
 
 
+def draw_face_tag(frame: np.ndarray, box: Tuple[int, int, int, int], text: str,
+                   accent=ACCENT_SINGLE) -> None:
+    """Outline the scanned face and stick a small label card above it
+    (e.g. "Female 87%" or "Scanning...")."""
+    x, y, w, h = box
+    cv2.rectangle(frame, (x, y), (x + w, y + h), accent, 2, cv2.LINE_AA)
+    if text:
+        # draw_label puts its card above the given origin; keep it on-screen.
+        draw_label(frame, text, (x, max(y - 6, 50)), accent=accent)
+
+
 # ---------------------------------------------------------------------------
 # Emoji badges (top-right corner)
 # ---------------------------------------------------------------------------
@@ -124,23 +143,94 @@ def _find_emoji_font():
     return None
 
 
-def build_icon_cache(gesture_emoji: Dict[str, str]) -> Dict[str, np.ndarray]:
+def _render_emoji_image(font, text: str):
+    """Render one emoji string to a transparent RGBA Pillow image."""
+    canvas_size = font.size + 8
+    img = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
+    ImageDraw.Draw(img).text((0, 0), text, font=font, embedded_color=True)
+    return img
+
+
+def _add_corner_badge(icon, glyph):
+    """Composite `glyph` (an emoji image) onto the bottom-right corner of
+    `icon`, on a small white disc so it stays readable over any video."""
+    size = icon.width
+    badge = int(size * 0.48)
+    disc = Image.new("RGBA", (badge, badge), (0, 0, 0, 0))
+    ImageDraw.Draw(disc).ellipse((0, 0, badge - 1, badge - 1), fill=(255, 255, 255, 235))
+
+    bbox = glyph.getbbox()
+    if bbox:
+        glyph = glyph.crop(bbox)
+        inner = int(badge * 0.68)
+        scale = inner / max(glyph.width, glyph.height)
+        glyph = glyph.resize(
+            (max(int(glyph.width * scale), 1), max(int(glyph.height * scale), 1)),
+            Image.LANCZOS,
+        )
+        disc.alpha_composite(glyph, dest=((badge - glyph.width) // 2, (badge - glyph.height) // 2))
+
+    out = icon.copy()
+    out.alpha_composite(disc, dest=(size - badge, size - badge))
+    return out
+
+
+def build_icon_cache(gesture_emoji: Dict[str, str],
+                      gender_variants: Optional[Dict[str, Dict[str, str]]] = None
+                      ) -> Dict[str, np.ndarray]:
     """Pre-render each gesture's emoji to an RGBA patch, once at startup.
-    Returns an empty dict if emoji rendering isn't available."""
+    Returns an empty dict if emoji rendering isn't available.
+
+    gender_variants maps a base gesture label to {gender: sign_emoji}. For
+    each pair an extra "<label> (<gender>)" icon is cached: the base emoji
+    with the gender sign badged onto its corner."""
     font = _find_emoji_font()
     if font is None:
         return {}
-    canvas_size = font.size + 8
+
     cache: Dict[str, np.ndarray] = {}
-    for label, emoji in gesture_emoji.items():
-        img = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        try:
-            draw.text((0, 0), emoji, font=font, embedded_color=True)
-        except TypeError:
-            return {}
-        img = img.resize((ICON_SIZE, ICON_SIZE), Image.LANCZOS)
-        cache[label] = np.array(img)  # RGBA
+    resized: Dict[str, "Image.Image"] = {}
+    try:
+        for label, emoji in gesture_emoji.items():
+            img = _render_emoji_image(font, emoji).resize((ICON_SIZE, ICON_SIZE), Image.LANCZOS)
+            resized[label] = img
+            cache[label] = np.array(img)  # RGBA
+
+        for base_label, signs in (gender_variants or {}).items():
+            if base_label not in resized:
+                continue
+            for gender, sign_emoji in signs.items():
+                badged = _add_corner_badge(resized[base_label], _render_emoji_image(font, sign_emoji))
+                cache[f"{base_label} ({gender})"] = np.array(badged)
+    except TypeError:
+        return {}   # Pillow too old for embedded_color glyphs
+    return cache
+
+
+def load_gender_icons(gender_variants: Dict[str, Dict[str, str]]) -> Dict[str, np.ndarray]:
+    """Load the ready-made gendered emoji images (e.g. assets/emoji/
+    hand_raised_female.png, i.e. the real 🙋‍♀️) into icon-cache entries.
+
+    Emoji fonts on a lot of setups can't draw combined "person + gender"
+    emoji (that needs a text-shaping library most Pillow installs lack), so
+    these are shipped as plain PNGs and look the same on every computer.
+    Entries loaded here replace the badge-composite fallback from
+    build_icon_cache; missing files are simply skipped."""
+    cache: Dict[str, np.ndarray] = {}
+    if not _PIL_AVAILABLE:
+        return cache
+    for base_label, signs in gender_variants.items():
+        for gender in signs:
+            filename = f"{base_label.lower().replace(' ', '_')}_{gender.lower()}.png"
+            path = os.path.join(ASSETS_DIR, "emoji", filename)
+            if not os.path.isfile(path):
+                continue
+            img = Image.open(path).convert("RGBA")
+            scale = ICON_SIZE / max(img.size)
+            img = img.resize((max(int(img.width * scale), 1), max(int(img.height * scale), 1)), Image.LANCZOS)
+            canvas = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
+            canvas.alpha_composite(img, dest=((ICON_SIZE - img.width) // 2, (ICON_SIZE - img.height) // 2))
+            cache[f"{base_label} ({gender})"] = np.array(canvas)
     return cache
 
 

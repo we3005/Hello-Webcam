@@ -9,6 +9,8 @@ A real-time hand gesture recognition tool that uses Media pipe for tracking, wit
 - OK Sign 👌 
 - Prayer Hands 🙏 (often has a difficult time recognizing, you may need to form more of a cup than a prayer)
 - Index Raised ☝️ 
+- Waving 👋 (motion-based — swing an open hand side to side)
+- Hand Raised 🙋 (open palm held up at face level; shows a ♂️/♀️ badge from a face scan)
 
 **On-screen display**
 
@@ -31,10 +33,52 @@ Instead of training a classifier, each gesture is defined by rules over the
 2. Each gesture is a pattern over those curl states, plus a
    distance check.
 
-The Index Raised gesture also runs a lightweight MediaPipe Face Detection
-pass (only while that gesture is active, to save CPU) and uses its eye and
-ear keypoints to size, rotate, and place a pair of glasses over your eyes 
-(so that you can look like the 🤓 emoji)
+MediaPipe Face Detection runs on every frame (it's a small, fast model). The
+Index Raised gesture uses its eye and ear keypoints to size, rotate, and place
+a pair of glasses over your eyes (so that you can look like the 🤓 emoji); the
+same detection also provides the face box for the gender guess and the height
+that counts as "raised" (see below).
+
+**Waving and Hand Raised**
+
+Waving can't be recognized from a single frame, so `motion.py` adds a time
+dimension. `WaveDetector` keeps the last ~1.2 s of each open hand's horizontal
+position and calls it a wave once the hand has swung back and forth at least
+3 times, each swing at least half a palm-length wide (measured in palm lengths
+so it works at any distance, and so landmark jitter doesn't count). A wave
+beats every other single-hand gesture.
+
+Hand Raised is a pose rule in `gesture_recognizer.py`: an open palm (no finger
+folded in), fingers pointing roughly up, with the middle fingertip above the
+middle of your detected face (or in the top 40% of the frame if no face is
+visible). It's checked after the finger-shape gestures, so it never steals a
+more specific pose like the peace sign.
+
+**Gender detection**
+
+The raised-hand emoji reflects a guess made from your face: 🙋 with a ♂️ or ♀️
+badge (the real 🙋‍♂️ / 🙋‍♀️ images in `assets/emoji/`). `gender.py` crops the face MediaPipe found and runs the Levi & Hassner
+gender CNN through OpenCV's built-in `cv2.dnn` (no new pip packages). Guesses
+are averaged over the last ~20 samples and only switch when the average
+clearly crosses the middle, so it doesn't flicker.
+
+This is a guess about appearance from a photo-like crop, not a fact about
+anyone. It only picks between two labels, glasses or a raised hand covering
+part of the face can throw it off, and it can be plain wrong. That's why
+pressing `g` lets you set male/female by hand. Nothing is saved or sent
+anywhere; frames are only processed in memory.
+
+*Model files (required for auto mode):* put these two files in `assets/models/`
+```
+assets/models/gender_deploy.prototxt
+assets/models/gender_net.caffemodel     (large file, listed in .gitignore)
+```
+They come from Levi & Hassner's project page
+(http://www.openu.ac.il/home/hassner/projects/cnn_agegender/)
+and are also bundled in several public "Gender-and-Age-Detection" repos on
+GitHub (for example `smahesh29/Gender-and-Age-Detection`). Check the
+license/terms of whichever copy you use. If the files are missing the app
+still runs: the raised-hand emoji is just the neutral 🙋 until you press `g`.
 
 **Assets**
 
@@ -48,12 +92,26 @@ assets/
     ok.png                — OK Sign
     pray.png              — Prayer Hands
     nerd.png              — Index Raised
+  emoji/
+    hand_raised_male.png    — 🙋‍♂️ shown for a male guess
+    hand_raised_female.png  — 🙋‍♀️ shown for a female guess
+  models/
+    gender_deploy.prototxt  — gender network definition (you add these two)
+    gender_net.caffemodel   — gender network weights
 ```
+Waving and Hand Raised have no cat drawings yet; to add them, draw
+`wave.png` / `raise.png`, put them in `assets/drawings/`, and add
+`"Waving": "wave.png"` and `"Hand Raised": "raise.png"` to `DRAWING_FILES` in
+`overlay.py`.
 
 
 ## Credits
 
 Cat drawings by Albert Rao (my friend).
+
+Gender model: Gil Levi and Tal Hassner, *Age and Gender Classification Using
+Convolutional Neural Networks*, IEEE Workshop on Analysis and Modeling of Faces
+and Gestures (AMFG) at CVPR 2015.
 
 
 ## Emoji icons
@@ -187,6 +245,8 @@ python main.py
 | `q` | Quit |
 | `d` | Toggle debug overlay (shows each finger's curl state) |
 | `m` | Toggle mirror mode |
+| `g` | Gender for the raised-hand emoji: auto (face scan) → male → female |
+| `f` | Toggle the face box / gender tag |
 
 
 ## Tuning
@@ -209,6 +269,21 @@ adjust thresholds in `gesture_recognizer.py`:
   fingertip pairs must be, and `wrist_gap < 1.0` controls how close the two
   wrists must be.
 
+Motion and position tuning:
+- `motion.py` — `WAVE_MIN_SWING` (how wide each swing must be, in palm
+  lengths; raise it if idle hand movement triggers waving), `WAVE_MIN_SWINGS`
+  (how many swings), and `WAVE_WINDOW_S` (how long the history window is,
+  which also sets how quickly "Waving" switches off after you stop).
+- `main.py` — `RAISE_FACE_FRACTION` (how far down the face box the fingertip
+  must be *above*: 0 = top of the face, 0.5 = middle, 1 = chin) and
+  `NO_FACE_RAISE_FRACTION` (the fallback line when no face is visible).
+- `gesture_recognizer.py` — `is_upright(max_tilt_deg=50)` controls how far the
+  hand may lean and still count as raised; `is_open_palm(min_extended=3)`
+  controls how straight the fingers must be.
+- `gender.py` — `HISTORY` (samples averaged), `SWITCH_HIGH` / `SWITCH_LOW`
+  (how far the average must move before the answer changes), `FACE_MARGIN`
+  (padding around the face crop).
+
 Overlay-specific tuning lives in `overlay.py`:
 - `draw_glasses_image()` — `target_width = eye_dist / 0.7` controls how
   wide the glasses render relative to the detected eye distance; lower the
@@ -229,4 +304,5 @@ gestures, follow the pattern of the other `is_*` functions in
 `gesture_recognizer.py`. To give a new gesture its on-screen display, add
 an entry to `GESTURE_EMOJI` (for the badge) and to `DRAWING_FILES` in
 `overlay.py` (pointing at a new file under `assets/drawings/`) — the label
-card needs no changes either way.
+card needs no changes either way. Gendered variants of an emoji are added by
+listing them in `GENDER_VARIANTS` in `gesture_recognizer.py`.
