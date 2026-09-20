@@ -51,11 +51,12 @@ assets/
 ```
 
 
-**Credits**
+## Credits
 
 Cat drawings by Albert Rao (my friend).
 
-**Emoji icons**
+
+## Emoji icons
 
 Each recognized gesture also gets an emoji  (☝️, 👍, etc.) in the
 top-right corner. Since OpenCV's built-in text drawing can't render emoji,
@@ -64,7 +65,10 @@ color-emoji font your OS provides (so this can change) and then cached
 as images. If no color-emoji font can be found on your system, the badges
 are skipped, but the app will still run
 
-**Setup**
+
+## Setup
+
+> **Note:** Python 3.10 or 3.11 is required due to MediaPipe constraints. If your default system Python is 3.13, jump to the **Python 3.13 & Environment Setup Troubleshooting** section below before installing!
 
 ```bash
 python3 -m venv venv
@@ -78,7 +82,10 @@ python main.py
 - This runs as a local desktop script (uses `cv2.imshow`), so it needs a real
   Python environment with a display, not a browser sandbox.
 
-**Known issue: pinned MediaPipe version**
+
+## Common Errors
+
+**Pinned MediaPipe version**
 
 `requirements.txt` pins `mediapipe==0.10.21` on purpose. Starting around
 mediapipe 0.10.30 (and in the 1.0.x releases), Google removed the legacy
@@ -102,6 +109,9 @@ The fix is to run in a 3.11 or 3.12 environment, even if 3.13 is
 your system default elsewhere — it won't affect anything else on your
 machine. Easiest ways to get one:
 
+
+## How to fix the errors mentioned:
+
 **Using [uv](https://docs.astral.sh/uv/) (recommended, no separate Python install needed):**
 ```bash
 uv venv --python 3.11 venv
@@ -109,15 +119,53 @@ source venv/bin/activate        # On Windows: venv\Scripts\activate
 uv pip install -r requirements.txt
 python main.py
 ```
+Install uv (if you get zsh: command not found: uv): curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
+Close and reopen your terminal window after running the installer, and follow the instructions above to complete the setup.
+
 Note: a `uv venv` environment does not include `pip` itself (uv manages
 packages directly). Use `uv pip install ...` as shown above rather than
 plain `pip install ...` inside it — or `python -m pip ...`, which will
 report "No module named pip" the same way.
 
-**Using [pyenv](https://github.com/pyenv/pyenv):**
+**Using [pyenv](https://github.com/pyenv/pyenv) (recommended for macOS):**
 ```bash
 pyenv install 3.11.9
-pyenv exec python3.11 -m venv venv
+```
+
+Enable shell integration and set Python 3.11:
+If running pyenv shell 3.11.9 gives pyenv: shell integration not enabled, run:
+```
+eval "$(pyenv init -)"
+pyenv shell 3.11.9
+```
+
+Avoid active virtual environment conflicts:
+If your terminal prompt shows an active environment like (.venv), running python -m venv
+will still use Python 3.13. You must deactivate all active environments first:
+deactivate
+
+Verify version and create virtual environment:
+Ensure python --version outputs 3.11.9 before creating the environment:
+
+```
+python --version    # Must show Python 3.11.9
+rm -rf venv
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+**Using Homebrew (macOS)**
+
+Install Python 3.10 via Homebrew:
+```
+brew install python@3.10
+```
+
+Create virtual environment using the Homebrew binary path:
+```
+python3.10 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 python main.py
@@ -132,7 +180,7 @@ python main.py
 ```
 
 
-**Controls**
+## Controls
 
 | Key | Action |
 |-----|--------|
@@ -140,7 +188,8 @@ python main.py
 | `d` | Toggle debug overlay (shows each finger's curl state) |
 | `m` | Toggle mirror mode |
 
-**Tuning**
+
+## Tuning
 
 Gestures can be difficult to register from certain angles, lighting, or hand
 sizes than others. If a gesture isn't triggering (or triggers too easily),
