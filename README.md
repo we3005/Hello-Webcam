@@ -104,6 +104,8 @@ The fix is to run in a 3.11 or 3.12 environment, even if 3.13 is
 your system default elsewhere — it won't affect anything else on your
 machine. Easiest ways to get one:
 
+***How to Fix these Issues:***
+
 **Using [uv](https://docs.astral.sh/uv/) (recommended, no separate Python install needed):**
 ```bash
 uv venv --python 3.11 venv
@@ -149,6 +151,7 @@ python main.py
 ```
 
 **Using Homebrew (macOS)**
+
 Install Python 3.10 via Homebrew:
 ```
 brew install python@3.10
