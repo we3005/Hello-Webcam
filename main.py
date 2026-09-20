@@ -14,6 +14,7 @@ Controls:
 
 import sys
 import time
+import platform
 from collections import deque, defaultdict
 
 if sys.version_info[:2] >= (3, 13):
@@ -86,9 +87,26 @@ def draw_debug(frame, hand_info, origin):
 
 
 def main():
-    cap = cv2.VideoCapture(0)
+    # Detect operating system for camera backend
+    is_mac = platform.system() == "Darwin"
+    backend = cv2.CAP_AVFOUNDATION if is_mac else cv2.CAP_ANY
+
+    # Try camera index 1 first (built-in Mac webcam), fallback to 0
+    cap = cv2.VideoCapture(1, backend)
+    if not cap.isOpened():
+         cap = cv2.VideoCapture(0, backend)
+
     if not cap.isOpened():
         raise RuntimeError("Could not open webcam. Check camera permissions / device index.")
+
+    # Request resolution
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+    # Flush initial empty/black frames while sensor warms up
+    for _ in range(10):
+        cap.read()
+        time.sleep(0.1)
 
     stabilizer = GestureStabilizer()
     icon_cache = build_icon_cache(GESTURE_EMOJI)      # empty dict if no emoji font is available
