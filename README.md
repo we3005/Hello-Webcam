@@ -173,11 +173,13 @@ your system default elsewhere — it won't affect anything else on your
 machine. Easiest ways to get one:
 
 
-## How to fix the errors mentioned:
+## How To Fix This Error:
+Follow the instructions by typing the commands into a terminal window—either inside your code editor (VS Code, PyCharm, etc.) unless specified otherwise, or in your system's standalone terminal (PowerShell on Windows, Terminal/Bash/Zsh on macOS/Linux) when noted
 
 **Using [uv](https://docs.astral.sh/uv/) (recommended, no separate Python install needed):**
+
 For macOS/Linux:
-```bash
+```
 uv venv --python 3.11 venv
 source venv/bin/activate
 uv pip install -r requirements.txt
@@ -192,7 +194,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Install uv (if you get zsh: command not found: uv):
+**Install uv (if you get zsh: command not found: uv)**
 
 Open Powershell on Windows or Terminal on macOS/Linux:
 ```
@@ -211,17 +213,15 @@ Install pyenv:
 
 macOS (via Homebrew):
 ```
-Bash
 brew install pyenv
 ```
 
 Linux:
 ```
-Bash
 curl [https://pyenv.run](https://pyenv.run) | bash
 ```
 
-```bash
+```
 pyenv install 3.11.9
 ```
 
@@ -267,7 +267,7 @@ python main.py
 **Using conda:**
 Note: Requires Miniconda / Anaconda to be installed
 
-```bash
+```
 conda create -n gesture-app python=3.11
 conda activate gesture-app
 pip install -r requirements.txt
