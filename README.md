@@ -199,7 +199,7 @@ python main.py
 Open Powershell on Windows or Terminal on macOS/Linux:
 ```
 winget install --id=astral-sh.uv -e # On Windows
-curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh # on macOS/Linux
+curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh # On macOS/Linux
 ```
 Close and reopen your terminal window after running the installer, then go back into the project to complete the setup.
 
