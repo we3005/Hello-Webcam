@@ -174,7 +174,7 @@ machine. Easiest ways to get one:
 
 
 ## How To Fix This Error:
-Follow the instructions by typing the commands into a terminal window—either inside your code editor (VS Code, PyCharm, etc.) unless specified otherwise, or in your system's standalone terminal (PowerShell on Windows, Terminal/Bash/Zsh on macOS/Linux) when noted
+Follow the instructions by typing the commands into a terminal window—either inside your code editor (VS Code, PyCharm, etc.) unless specified otherwise, or in your system's standalone terminal (PowerShell on Windows, Terminal/Bash/Zsh on macOS/Linux) when noted.
 
 **Using [uv](https://docs.astral.sh/uv/) (recommended, no separate Python install needed):**
 
@@ -199,7 +199,7 @@ python main.py
 Open Powershell on Windows or Terminal on macOS/Linux:
 ```
 winget install --id=astral-sh.uv -e # On Windows
-curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
+curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh # on macOS/Linux
 ```
 Close and reopen your terminal window after running the installer, then go back into the project to complete the setup.
 
