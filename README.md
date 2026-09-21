@@ -176,21 +176,51 @@ machine. Easiest ways to get one:
 ## How to fix the errors mentioned:
 
 **Using [uv](https://docs.astral.sh/uv/) (recommended, no separate Python install needed):**
+For macOS/Linux:
 ```bash
 uv venv --python 3.11 venv
-source venv/bin/activate        # On Windows: venv\Scripts\activate
+source venv/bin/activate
 uv pip install -r requirements.txt
 python main.py
 ```
-Install uv (if you get zsh: command not found: uv): curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
-Close and reopen your terminal window after running the installer, and follow the instructions above to complete the setup.
+
+For Windows:
+```
+uv venv --python 3.11 venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python main.py
+```
+
+Install uv (if you get zsh: command not found: uv):
+
+Open Powershell on Windows or Terminal on macOS/Linux:
+```
+winget install --id=astral-sh.uv -e # On Windows
+curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
+```
+Close and reopen your terminal window after running the installer, then go back into the project to complete the setup.
 
 Note: a `uv venv` environment does not include `pip` itself (uv manages
 packages directly). Use `uv pip install ...` as shown above rather than
 plain `pip install ...` inside it — or `python -m pip ...`, which will
 report "No module named pip" the same way.
 
-**Using [pyenv](https://github.com/pyenv/pyenv) (recommended for macOS):**
+**Using [pyenv](https://github.com/pyenv/pyenv) (recommended for macOS/Linux):**
+Install pyenv:
+
+macOS (via Homebrew):
+```
+Bash
+brew install pyenv
+```
+
+Linux:
+```
+Bash
+curl [https://pyenv.run](https://pyenv.run) | bash
+```
+
 ```bash
 pyenv install 3.11.9
 ```
@@ -235,6 +265,8 @@ python main.py
 ```
 
 **Using conda:**
+Note: Requires Miniconda / Anaconda to be installed
+
 ```bash
 conda create -n gesture-app python=3.11
 conda activate gesture-app
